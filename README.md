@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-# UGCLive-Bid
-=======
->>>>>>> 32294ae (Initial draft for UGCLive-Bid live commerce platform)
 # UGCLive-Bid
 
 UGCLive-Bid is a first-draft live shopping platform inspired by the marketplace energy of eBay Live and Whatnot. This repo includes:
@@ -99,8 +93,3 @@ kubectl apply -k infra/k8s/overlays/linode
 - Issue signed stream keys and viewer access tokens
 - Add payment capture, order creation, and fraud checks
 - Add media recording, clipping, moderation, and playback fallbacks
-
-<<<<<<< HEAD
-=======
->>>>>>> 4ec2c96 (Initial draft for UGCLive-Bid live commerce platform)
->>>>>>> 32294ae (Initial draft for UGCLive-Bid live commerce platform)

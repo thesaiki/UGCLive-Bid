@@ -21,10 +21,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: ugclive-config
+            - secretRef:
+                name: ugclive-secrets
           readinessProbe:
             httpGet:
               path: /
               port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
-
