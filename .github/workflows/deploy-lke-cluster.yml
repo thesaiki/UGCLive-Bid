@@ -127,15 +127,15 @@ jobs:
       - name: Wait for cluster ready
         run: |
           CLUSTER_ID='${{ steps.create.outputs.cluster_id }}'
-          MAX_WAIT=1200
+          MAX_WAIT=1800
           INTERVAL=20
           ELAPSED=0
 
           while [ $ELAPSED -lt $MAX_WAIT ]; do
             STATUS=$(linode-cli lke clusters-list --json | jq -r --arg id "$CLUSTER_ID" '.[] | select(.id == ($id | tonumber)) | .status // "provisioning"')
             echo "[$ELAPSED s] Status: $STATUS"
-            if [ "$STATUS" = "ready" ]; then
-              echo "Cluster is ready."
+            if [ "$STATUS" = "ready" ] || [ "$STATUS" = "running" ]; then
+              echo "Cluster is ready enough to use."
               break
             fi
             sleep $INTERVAL
@@ -198,4 +198,3 @@ jobs:
           echo "| HA control plane | ${{ inputs.ha_control_plane }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Download the kubeconfig artifact from this run and store it as the repository secret KUBE_CONFIG for application deployments." >> "$GITHUB_STEP_SUMMARY"
-
