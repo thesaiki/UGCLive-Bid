@@ -1,0 +1,127 @@
+name: Deploy UGCLive-Bid to LKE
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment name"
+        required: true
+        default: "production"
+      image_tag:
+        description: "Image tag to deploy"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/ugclive-bid-web
+  API_IMAGE: ghcr.io/${{ github.repository_owner }}/ugclive-bid-api
+  K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'ugclive-bid' }}
+  APP_HOST: ${{ vars.APP_HOST || 'app.ugclivebid.com' }}
+  API_HOST: ${{ vars.API_HOST || 'api.ugclivebid.com' }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: image-tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            TAG="${{ inputs.image_tag }}"
+          else
+            TAG="${GITHUB_SHA}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: true
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ steps.image-tag.outputs.tag }}
+            ${{ env.WEB_IMAGE }}:latest
+
+      - name: Build and push api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/api.Dockerfile
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:${{ steps.image-tag.outputs.tag }}
+            ${{ env.API_IMAGE }}:latest
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          printf '%s' '${{ secrets.KUBE_CONFIG }}' > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Create or update runtime secrets
+        run: |
+          kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n "$K8S_NAMESPACE" create secret generic ugclive-secrets \
+            --from-literal=DATABASE_URL='${{ secrets.DATABASE_URL }}' \
+            --from-literal=REDIS_URL='${{ secrets.REDIS_URL }}' \
+            --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}' \
+            --from-literal=STREAM_KEY_SECRET='${{ secrets.STREAM_KEY_SECRET }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Render deployment manifests
+        run: |
+          perl -0pi -e 's|namespace: ugclive-bid|namespace: ${{ env.K8S_NAMESPACE }}|g' infra/k8s/base/*.yaml infra/k8s/overlays/linode/kustomization.yaml
+          perl -0pi -e 's|registry\.example\.com/ugclive-bid/web:latest|${{ env.WEB_IMAGE }}:${{ steps.image-tag.outputs.tag }}|g' infra/k8s/base/web-deployment.yaml
+          perl -0pi -e 's|registry\.example\.com/ugclive-bid/api:latest|${{ env.API_IMAGE }}:${{ steps.image-tag.outputs.tag }}|g' infra/k8s/base/api-deployment.yaml
+          perl -0pi -e 's|https://api\.ugclivebid\.com|https://${{ env.API_HOST }}|g' infra/k8s/base/configmap.yaml
+          perl -0pi -e 's|https://app\.ugclivebid\.com|https://${{ env.APP_HOST }}|g' infra/k8s/base/configmap.yaml
+          perl -0pi -e 's|host: app\.ugclivebid\.com|host: ${{ env.APP_HOST }}|g' infra/k8s/base/ingress.yaml
+          perl -0pi -e 's|host: api\.ugclivebid\.com|host: ${{ env.API_HOST }}|g' infra/k8s/base/ingress.yaml
+
+      - name: Apply manifests
+        run: |
+          kubectl apply -k infra/k8s/overlays/linode
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/ugclive-web --timeout=300s
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/ugclive-api --timeout=300s
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/ugclive-media-origin --timeout=300s
+
+      - name: Deployment summary
+        run: |
+          echo "### UGCLive-Bid deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Component | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Namespace | $K8S_NAMESPACE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Web image | ${{ env.WEB_IMAGE }}:${{ steps.image-tag.outputs.tag }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API image | ${{ env.API_IMAGE }}:${{ steps.image-tag.outputs.tag }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| App host | $APP_HOST |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API host | $API_HOST |" >> "$GITHUB_STEP_SUMMARY"
