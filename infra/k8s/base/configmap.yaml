@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ugclive-config
+  namespace: ugclive-bid
+data:
+  NEXT_PUBLIC_API_URL: "https://api.ugclivebid.com"
+  ALLOWED_ORIGIN: "https://app.ugclivebid.com"
+

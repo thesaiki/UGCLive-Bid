@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ugclive-web
+  namespace: ugclive-bid
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ugclive-web
+  template:
+    metadata:
+      labels:
+        app: ugclive-web
+    spec:
+      containers:
+        - name: web
+          image: registry.example.com/ugclive-bid/web:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: ugclive-config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+

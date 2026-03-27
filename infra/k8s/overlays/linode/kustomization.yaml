@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ugclive-bid
+resources:
+  - ../../base/namespace.yaml
+  - ../../base/configmap.yaml
+  - ../../base/web-deployment.yaml
+  - ../../base/api-deployment.yaml
+  - ../../base/media-origin-deployment.yaml
+  - ../../base/services.yaml
+  - ../../base/ingress.yaml

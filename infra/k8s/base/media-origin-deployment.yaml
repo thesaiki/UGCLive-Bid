@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ugclive-media-origin
+  namespace: ugclive-bid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ugclive-media-origin
+  template:
+    metadata:
+      labels:
+        app: ugclive-media-origin
+    spec:
+      containers:
+        - name: media-origin
+          image: airensoft/ovenmediaengine:latest
+          ports:
+            - containerPort: 1935
+            - containerPort: 3333
+            - containerPort: 3334
+            - containerPort: 8081
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
