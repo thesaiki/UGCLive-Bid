@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["@ugclive/shared"],
   images: {
     remotePatterns: [
       {
@@ -11,4 +12,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-

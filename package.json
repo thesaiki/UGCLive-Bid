@@ -6,6 +6,10 @@
     "apps/*",
     "packages/*"
   ],
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
   "scripts": {
     "dev:web": "npm --workspace @ugclive/web run dev",
     "dev:api": "npm --workspace @ugclive/api run dev",
@@ -13,4 +17,3 @@
     "lint": "npm run lint --workspaces"
   }
 }
-
