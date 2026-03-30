@@ -84,15 +84,28 @@ jobs:
           printf '%s' '${{ secrets.KUBE_CONFIG }}' > ~/.kube/config
           chmod 600 ~/.kube/config
 
+      - name: Wait for cluster API
+        run: |
+          for i in $(seq 1 30); do
+            if kubectl cluster-info; then
+              echo "Cluster API is reachable."
+              exit 0
+            fi
+            echo "Cluster API not reachable yet, retrying in 20s..."
+            sleep 20
+          done
+          echo "Cluster API did not become reachable in time."
+          exit 1
+
       - name: Create or update runtime secrets
         run: |
-          kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply --validate=false -f -
           kubectl -n "$K8S_NAMESPACE" create secret generic ugclive-secrets \
             --from-literal=DATABASE_URL='${{ secrets.DATABASE_URL }}' \
             --from-literal=REDIS_URL='${{ secrets.REDIS_URL }}' \
             --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}' \
             --from-literal=STREAM_KEY_SECRET='${{ secrets.STREAM_KEY_SECRET }}' \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
       - name: Render deployment manifests
         run: |
